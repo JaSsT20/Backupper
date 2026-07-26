@@ -71,6 +71,77 @@ La solución consta de dos componentes desacoplados para garantizar confiabilida
 - **Runtime**: .NET 8.0 Desktop Runtime instalado.
 - **Motor de Base de Datos**: Microsoft SQL Server 2012 o superior (Express, Standard, Enterprise).
 - **Permisos**: Permisos de Administrador en Windows (para registrar tareas en Task Scheduler) y permisos de escritura para la cuenta de servicio de SQL Server en la carpeta destino local.
+- **Credenciales de Usuario**: Cuenta de usuario de Windows con **contraseña configurada** (consulte la sección de requisitos de Windows abajo).
+
+---
+
+## 🔑 Configuración de Credenciales de Windows (Requisito Obligatorio)
+
+> [!IMPORTANT]
+> **El usuario de Windows utilizado para programar las tareas DEBE tener una contraseña establecida.**
+> 
+> El Programador de Tareas de Windows (*Task Scheduler*) registra las tareas en modo de ejecución desatendida (`TaskLogonType.Password`). Esto permite que los respaldos se ejecuten automáticamente a la hora programada incluso si la computadora está bloqueada, si el usuario cerró sesión o si el servidor se reinicia.
+> 
+> **Métodos NO compatibles para tareas desatendidas:**
+> - PIN de Windows Hello.
+> - Reconocimiento facial o huella dactilar de Windows Hello.
+> - Contraseña de imagen.
+> - Cuentas de usuario sin contraseña (en blanco).
+> 
+> **Si intentas usar un PIN, Windows Hello o un usuario sin contraseña, Windows Task Scheduler rechazará las credenciales y la tarea NO funcionará ni se ejecutará.**
+
+### 📝 ¿Cómo configurar o verificar una Contraseña en tu usuario de Windows?
+
+#### Opción 1: Desde la Configuración de Windows (Windows 10 / Windows 11)
+1. Abre el menú **Inicio** y entra a **Configuración** (o presiona la combinación de teclas `Win + I`).
+2. Dirígete a la sección **Cuentas** > **Opciones de inicio de sesión**.
+3. Busca el apartado **Contraseña** (*Password*).
+4. Si tu cuenta no tiene contraseña o actualmente solo usas un PIN o Windows Hello:
+   - Haz clic en **Agregar** (o en **Cambiar** si ya la tenías).
+   - Establece una contraseña alfanumérica para tu cuenta de Windows y confirma los cambios.
+5. Usa **esa misma contraseña de usuario** en el paso 5 (*Credenciales Windows*) al crear o editar la tarea en Backuper.
+
+#### Opción 2: Desde la Consola de Comandos (CMD o PowerShell como Administrador)
+Si estás en un servidor Windows Server o prefieres la línea de comandos:
+1. Abre **CMD** o **PowerShell** ejecútandolo como Administrador.
+2. Ejecuta el siguiente comando reemplazando los datos por tu usuario y la nueva contraseña:
+   ```cmd
+   net user TuNombreDeUsuario TuNuevaContraseña
+   ```
+3. Si la cuenta pertenece a un **Dominio de Active Directory**, cambia o verifica la contraseña desde la consola de administración del dominio (*Active Directory Users and Computers*) o presionando `Ctrl + Alt + Supr` > *Cambiar contraseña*.
+
+---
+
+## ☁️ Configuración Requerida en Dropbox (Integración Nube)
+
+> [!NOTE]
+> Para activar la subida de respaldos a la nube con Dropbox, debes registrar una aplicación en la consola de desarrolladores de Dropbox y otorgarle los permisos adecuados de lectura y escritura.
+
+### 📝 Pasos para configurar tu App en Dropbox:
+
+1. **Acceder a la Consola de Desarrolladores**:
+   - Ingresa a la [Dropbox Developers Console](https://www.dropbox.com/developers/apps).
+   - Inicia sesión con tu cuenta de Dropbox.
+
+2. **Crear una nueva Aplicación**:
+   - Haz clic en el botón **Create app**.
+   - **Paso 1 (API)**: Selecciona **Scoped access**.
+   - **Paso 2 (Access Type)**: Selecciona **Full Dropbox** (acceso a todo el almacenamiento) o **App folder** (acceso únicamente a una carpeta propia en `/Apps/NombreDeTuApp`).
+   - **Paso 3 (Nombre)**: Asigna un nombre único a tu aplicación (ejemplo: `Backuper-SQL-Server01`) y haz clic en **Create app**.
+
+3. **Configurar Permisos Obligatorios (Pestaña *Permissions*)**:
+   - Dentro de la configuración de tu app recién creada, ve a la pestaña **Permissions**.
+   - En la sección **Files and folders**, marca las siguientes casillas obligatorias:
+     - `files.content.write` *(Obligatorio para subir y reemplazar respaldos)*.
+     - `files.content.read` *(Obligatorio para leer y verificar los archivos)*.
+     - `files.metadata.read` *(Obligatorio para la regla de retención y limpieza remota de respaldos viejos)*.
+   - **CRÍTICO**: Haz clic en el botón **Submit** al final de la página para aplicar los permisos guardados.
+
+4. **Obtener el Token o Refresh Token**:
+   - Ve a la pestaña **Settings**.
+   - **Opción A (Token de prueba / corta duración)**: En la sección *Generated access token*, haz clic en **Generate**. Copia el token generado y pégalo en el campo *Token / Refresh Token* en Backuper.
+   - **Opción B (Refresh Token para Producción - Recomendado)**: 
+     - Puedes configurar un Refresh Token de larga duración utilizando el formato `AppKey:AppSecret:RefreshToken` directamente en la casilla de token de Backuper para evitar la expiración de la sesión.
 
 ---
 
@@ -81,8 +152,8 @@ La solución consta de dos componentes desacoplados para garantizar confiabilida
 3. **Paso 1 - Conexión SQL**: Selecciona la instancia de SQL Server, la autenticación (Windows o SQL) y elige la base de datos a respaldar. Haz clic en *Probar Conexión*.
 4. **Paso 2 - Destino y Limpieza**: Selecciona el tipo de respaldo (Completo, Diferencial o Log), el tipo de compresión, la carpeta local de destino y configura la regla de limpieza deseada.
 5. **Paso 3 - Programación**: Selecciona la frecuencia (Diario, Semanal o Mensual) y la hora exacta de ejecución.
-6. **Paso 4 - Nube (Opcional)**: Activa la subida a Dropbox e introduce tu Token o Refresh Token.
-7. **Paso 5 - Credenciales de Windows**: Proporciona el usuario y contraseña de Windows para autorizar la creación de la tarea desatendida en Windows Task Scheduler.
+6. **Paso 4 - Nube (Opcional)**: Activa la subida a Dropbox, asegúrate de haber configurado los permisos de la app en Dropbox y pega tu Token / Refresh Token.
+7. **Paso 5 - Credenciales de Windows**: Proporciona el usuario y la **contraseña de Windows** (no PIN ni Windows Hello) para autorizar la creación de la tarea desatendida en Windows Task Scheduler.
 8. **Guardar**: Haz clic en **Guardar Tarea**. La tarea quedará programada y operará automáticamente de forma autónoma.
 
 ---
