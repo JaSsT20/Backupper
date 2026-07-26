@@ -1,0 +1,23 @@
+# Visual Studio / Build artifacts
+bin/
+obj/
+.vs/
+*.user
+*.userosset
+*.suo
+*.userprefs
+
+# Published & Executable files
+Publicacion/
+Ejecutables/
+*.zip
+*.rar
+*.7z
+
+# Logs & Temporary files
+*.log
+*.tmp
+
+# Operating system files
+Thumbs.db
+Desktop.ini
