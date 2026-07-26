@@ -4,13 +4,6 @@
 
 ---
 
-## 🚀 Descargas Directas
-
-- **Paquete Ejecutable Listo para Usar**: [Descargar Backuper.zip](https://github.com/JaSsT20/Backupper/releases/latest/download/Backuper.zip)
-*(Incluye `Backuper.exe` y `BackupWorker.exe` sin necesidad de compilación previa).*
-
----
-
 ## 🛠️ Arquitectura del Sistema
 
 La solución consta de dos componentes desacoplados para garantizar confiabilidad y rendimiento:
@@ -75,7 +68,7 @@ La solución consta de dos componentes desacoplados para garantizar confiabilida
 ## ⚙️ Requisitos del Sistema
 
 - **Sistema Operativo**: Windows Server 2016+, Windows 10 o Windows 11.
-- **Runtime**: .NET 8.0 Desktop Runtime instalado (o paquete listo con independientes).
+- **Runtime**: .NET 8.0 Desktop Runtime instalado.
 - **Motor de Base de Datos**: Microsoft SQL Server 2012 o superior (Express, Standard, Enterprise).
 - **Permisos**: Permisos de Administrador en Windows (para registrar tareas en Task Scheduler) y permisos de escritura para la cuenta de servicio de SQL Server en la carpeta destino local.
 
@@ -83,7 +76,7 @@ La solución consta de dos componentes desacoplados para garantizar confiabilida
 
 ## 📖 Guía de Uso Rápido
 
-1. **Descarga**: Descarga `Backuper.zip` desde la sección de descargas o Releases y descomprímelo en una carpeta del servidor (ejemplo: `C:\Apps\Backuper\`).
+1. **Instalación**: Copia los archivos publicados en una carpeta del servidor (ejemplo: `C:\Apps\Backuper\`).
 2. **Creación de Tarea**: Ejecuta `Backuper.exe` y haz clic en **Nuevo Respaldo**.
 3. **Paso 1 - Conexión SQL**: Selecciona la instancia de SQL Server, la autenticación (Windows o SQL) y elige la base de datos a respaldar. Haz clic en *Probar Conexión*.
 4. **Paso 2 - Destino y Limpieza**: Selecciona el tipo de respaldo (Completo, Diferencial o Log), el tipo de compresión, la carpeta local de destino y configura la regla de limpieza deseada.
@@ -109,9 +102,3 @@ Backuper/
 ├── .gitignore                 # Filtro de archivos para Git
 └── README.md                  # Documentación del proyecto
 ```
-
----
-
-## 📄 Licencia
-
-Este proyecto está distribuido bajo la licencia MIT. Libre para uso personal y comercial.
