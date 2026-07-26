@@ -7,19 +7,21 @@ public partial class JobEditForm : Form
 {
     private readonly SqlServerService _sqlService = new();
     private readonly JobConfigRepository _repo = new();
+    private readonly AppConfigRepository _appConfigRepo = new();
     private readonly TaskSchedulerService _taskSchedulerService = new();
 
     public BackupJobConfig JobConfig { get; private set; }
     public bool IsEditMode { get; }
+    public bool IsDuplicateMode { get; }
 
     /// <summary>
     /// Constructor sin parámetros requerido explícitamente por el Diseñador de Visual Studio.
     /// </summary>
-    public JobEditForm() : this(null)
+    public JobEditForm() : this(null, false)
     {
     }
 
-    public JobEditForm(BackupJobConfig? existingJob)
+    public JobEditForm(BackupJobConfig? existingJob, bool isDuplicateMode = false)
     {
         InitializeComponent();
 
@@ -36,10 +38,12 @@ public partial class JobEditForm : Form
             catch { }
         }
 
+        IsDuplicateMode = isDuplicateMode;
+
         if (existingJob != null)
         {
             JobConfig = existingJob;
-            IsEditMode = true;
+            IsEditMode = !isDuplicateMode;
         }
         else
         {
@@ -89,10 +93,10 @@ public partial class JobEditForm : Form
 
         cboCloudProvider.DataSource = Enum.GetValues(typeof(CloudProviderType));
 
-        // Cargar valores por defecto o del objeto a editar
-        if (IsEditMode)
+        // Cargar valores por defecto o del objeto a editar/duplicar
+        if (IsEditMode || IsDuplicateMode)
         {
-            lblHeader.Text = "Editar Tarea de Respaldo";
+            lblHeader.Text = IsDuplicateMode ? "Duplicar Tarea de Respaldo" : "Editar Tarea de Respaldo";
             txtJobName.Text = JobConfig.Name;
             cboSqlServer.Text = JobConfig.SqlServer;
 
@@ -136,15 +140,90 @@ public partial class JobEditForm : Form
         {
             lblHeader.Text = "Nueva Tarea de Respaldo";
             txtJobName.Text = $"Respaldo_{DateTime.Now:yyyyMMdd_HHmm}";
-            txtLocalPath.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BackupsSQL");
-            txtWindowsDomain.Text = Environment.UserDomainName;
-            txtWindowsUser.Text = Environment.UserName;
+
+            // Cargar Ajustes Generales por Defecto
+            var appDefaults = await _appConfigRepo.LoadAsync();
+            cboSqlServer.Text = appDefaults.DefaultSqlServer;
+
+            if (appDefaults.DefaultSqlAuthType == AuthType.Windows)
+            {
+                rdoAuthWindows.Checked = true;
+            }
+            else
+            {
+                rdoAuthSql.Checked = true;
+                txtSqlUser.Text = appDefaults.DefaultSqlUsername;
+                txtSqlPassword.Text = CryptoService.Decrypt(appDefaults.DefaultSqlPasswordEncrypted);
+            }
+
+            if (!string.IsNullOrWhiteSpace(appDefaults.DefaultDatabaseName))
+            {
+                cboDatabase.Text = appDefaults.DefaultDatabaseName;
+            }
+
+            txtLocalPath.Text = !string.IsNullOrWhiteSpace(appDefaults.DefaultLocalDestinationPath)
+                ? appDefaults.DefaultLocalDestinationPath
+                : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "BackupsSQL");
+
+            cboBackupType.SelectedValue = appDefaults.DefaultBackupType;
+            cboCompression.SelectedValue = appDefaults.DefaultCompression;
+
+            chkEnableCloud.Checked = appDefaults.DefaultEnableCloudUpload;
+            txtCloudToken.Text = CryptoService.Decrypt(appDefaults.DefaultCloudTokenEncrypted);
+            txtCloudFolder.Text = string.IsNullOrWhiteSpace(appDefaults.DefaultCloudFolderPath) ? "/Backups" : appDefaults.DefaultCloudFolderPath;
+
+            txtWindowsDomain.Text = string.IsNullOrWhiteSpace(appDefaults.DefaultWindowsDomainOrMachine) ? Environment.UserDomainName : appDefaults.DefaultWindowsDomainOrMachine;
+            txtWindowsUser.Text = string.IsNullOrWhiteSpace(appDefaults.DefaultWindowsUsername) ? Environment.UserName : appDefaults.DefaultWindowsUsername;
+            txtWindowsPassword.Text = CryptoService.Decrypt(appDefaults.DefaultWindowsPasswordEncrypted);
+
             dtpExecutionTime.Value = DateTime.Today.AddHours(2); // 02:00 AM
 
             await DiscoverSqlInstancesAsync();
         }
 
+        SwitchStep(btnStepSql);
         UpdateVisibilityAndState();
+    }
+
+    private void btnStep_Click(object sender, EventArgs e)
+    {
+        if (sender is Button btn)
+        {
+            SwitchStep(btn);
+        }
+    }
+
+    private void SwitchStep(Button activeBtn)
+    {
+        btnStepSql.BackColor = Color.FromArgb(15, 23, 42);
+        btnStepSql.ForeColor = Color.FromArgb(203, 213, 225);
+        btnStepSql.Font = new Font("Segoe UI", 9.5F);
+
+        btnStepSchedule.BackColor = Color.FromArgb(15, 23, 42);
+        btnStepSchedule.ForeColor = Color.FromArgb(203, 213, 225);
+        btnStepSchedule.Font = new Font("Segoe UI", 9.5F);
+
+        btnStepBackup.BackColor = Color.FromArgb(15, 23, 42);
+        btnStepBackup.ForeColor = Color.FromArgb(203, 213, 225);
+        btnStepBackup.Font = new Font("Segoe UI", 9.5F);
+
+        btnStepCloud.BackColor = Color.FromArgb(15, 23, 42);
+        btnStepCloud.ForeColor = Color.FromArgb(203, 213, 225);
+        btnStepCloud.Font = new Font("Segoe UI", 9.5F);
+
+        btnStepWindows.BackColor = Color.FromArgb(15, 23, 42);
+        btnStepWindows.ForeColor = Color.FromArgb(203, 213, 225);
+        btnStepWindows.Font = new Font("Segoe UI", 9.5F);
+
+        activeBtn.BackColor = Color.FromArgb(30, 41, 59);
+        activeBtn.ForeColor = Color.FromArgb(56, 189, 248);
+        activeBtn.Font = new Font("Segoe UI Semibold", 9.5F, FontStyle.Bold);
+
+        pnlStepSql.Visible = (activeBtn == btnStepSql);
+        pnlStepSchedule.Visible = (activeBtn == btnStepSchedule);
+        pnlStepBackup.Visible = (activeBtn == btnStepBackup);
+        pnlStepCloud.Visible = (activeBtn == btnStepCloud);
+        pnlStepWindows.Visible = (activeBtn == btnStepWindows);
     }
 
     private async Task DiscoverSqlInstancesAsync()
@@ -231,7 +310,7 @@ public partial class JobEditForm : Form
     private void btnBrowseFolder_Click(object sender, EventArgs e)
     {
         using var dialog = new FolderBrowserDialog();
-        dialog.Description = "Seleccione la carpeta local de destino para los archivos .bak";
+        dialog.Description = "Seleccione la carpeta local de destino para los archivos de respaldo";
         dialog.UseDescriptionForTitle = true;
         if (!string.IsNullOrWhiteSpace(txtLocalPath.Text) && Directory.Exists(txtLocalPath.Text))
         {
@@ -310,32 +389,32 @@ public partial class JobEditForm : Form
         // Validaciones
         if (string.IsNullOrWhiteSpace(txtJobName.Text))
         {
-            MessageBox.Show("Por favor ingrese un nombre para la tarea.", "Campo requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            tabControl.SelectedTab = tabSql;
+            MessageBox.Show("Por favor ingrese un nombre para la tarea.", "Campo Requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            SwitchStep(btnStepSql);
             txtJobName.Focus();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(cboSqlServer.Text))
         {
-            MessageBox.Show("Por favor especifique la instancia de SQL Server.", "Campo requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            tabControl.SelectedTab = tabSql;
+            MessageBox.Show("Por favor especifique la instancia de SQL Server.", "Campo Requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            SwitchStep(btnStepSql);
             cboSqlServer.Focus();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(cboDatabase.Text))
         {
-            MessageBox.Show("Por favor seleccione la base de datos a respaldar.", "Campo requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            tabControl.SelectedTab = tabSql;
+            MessageBox.Show("Por favor seleccione la base de datos a respaldar.", "Campo Requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            SwitchStep(btnStepSql);
             cboDatabase.Focus();
             return;
         }
 
         if (string.IsNullOrWhiteSpace(txtLocalPath.Text))
         {
-            MessageBox.Show("Por favor ingrese la carpeta de destino local para los respaldos.", "Campo requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            tabControl.SelectedTab = tabBackup;
+            MessageBox.Show("Por favor ingrese la carpeta de destino local para los respaldos.", "Campo Requerido", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            SwitchStep(btnStepBackup);
             txtLocalPath.Focus();
             return;
         }
@@ -351,7 +430,7 @@ public partial class JobEditForm : Form
         catch (Exception ex)
         {
             MessageBox.Show($"No se pudo crear la carpeta destino: {ex.Message}", "Error de Carpeta", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            tabControl.SelectedTab = tabBackup;
+            SwitchStep(btnStepBackup);
             return;
         }
 
